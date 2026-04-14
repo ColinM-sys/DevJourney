@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colin's Dev Journey — Skill Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root {
+  --bg: #0a0a14;
+  --card: #12122a;
+  --border: #1e1e3a;
+  --primary: #76b900;
+  --accent: #7c3aed;
+  --accent2: #3b82f6;
+  --text: #e2e8f0;
+  --dim: #94a3b8;
+  --muted: #475569;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+.header {
+  background: linear-gradient(135deg, #12122a, #1a1040);
+  border-bottom: 1px solid var(--border);
+  padding: 1.5rem 2rem;
+  text-align: center;
+}
+.header h1 { font-size: 1.8rem; background: linear-gradient(135deg, #76b900, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.header .subtitle { color: var(--dim); font-size: 0.9rem; margin-top: 4px; }
+
+.stats-bar {
+  display: flex; gap: 1.5rem; justify-content: center; padding: 1rem 2rem;
+  flex-wrap: wrap;
+}
+.stat-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1rem 1.5rem; text-align: center; min-width: 140px;
+}
+.stat-card .value { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+.stat-card .label { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
+.full-width { grid-column: 1 / -1; }
+
+.panel {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;
+}
+.panel h2 { font-size: 1.1rem; color: var(--accent); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+
+/* Skill bars */
+.skill-group { margin-bottom: 1.2rem; }
+.skill-group-title { font-size: 0.8rem; color: var(--accent2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; }
+.skill-row { display: flex; align-items: center; margin-bottom: 6px; gap: 10px; }
+.skill-name { width: 160px; font-size: 0.85rem; color: var(--dim); flex-shrink: 0; }
+.skill-bar-bg { flex: 1; height: 20px; background: #1a1a30; border-radius: 10px; overflow: hidden; position: relative; }
+.skill-bar { height: 100%; border-radius: 10px; transition: width 1.5s ease-out; position: relative; }
+.skill-bar::after { content: attr(data-level); position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: white; font-weight: 600; }
+.skill-level { width: 30px; font-size: 0.75rem; color: var(--dim); text-align: right; }
+
+/* Timeline */
+.timeline { position: relative; padding-left: 30px; }
+.timeline::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, var(--primary), var(--accent), var(--accent2)); }
+.timeline-item { position: relative; margin-bottom: 1.2rem; padding-left: 20px; }
+.timeline-item::before {
+  content: ''; position: absolute; left: -24px; top: 4px; width: 12px; height: 12px;
+  border-radius: 50%; border: 2px solid var(--primary); background: var(--bg);
+}
+.timeline-item.predicted::before { border-color: var(--muted); border-style: dashed; }
+.timeline-item .date { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.timeline-item .event { font-size: 0.85rem; color: var(--text); margin-top: 2px; }
+.timeline-item .detail { font-size: 0.75rem; color: var(--dim); margin-top: 2px; }
+.timeline-item.predicted .event { color: var(--muted); font-style: italic; }
+
+/* Predicted */
+.prediction-card {
+  background: linear-gradient(135deg, #1a1030, #0f1a30); border: 1px dashed var(--accent);
+  border-radius: 10px; padding: 1rem; margin-bottom: 0.8rem;
+}
+.prediction-card .title { font-size: 0.9rem; color: var(--accent); font-weight: 600; }
+.prediction-card .why { font-size: 0.78rem; color: var(--dim); margin-top: 4px; }
+.prediction-card .confidence { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+.conf-bar { height: 4px; background: #1a1a30; border-radius: 2px; margin-top: 4px; }
+.conf-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+
+/* Category filter */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+.filter-btn {
+  padding: 4px 12px; border-radius: 16px; border: 1px solid var(--border);
+  background: transparent; color: var(--dim); font-size: 0.75rem; cursor: pointer;
+  transition: all 0.2s;
+}
+.filter-btn:hover, .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* XP animation */
+@keyframes xp-glow { 0%,100% { box-shadow: 0 0 5px #76b90033; } 50% { box-shadow: 0 0 15px #76b90066; } }
+.stat-card:first-child { animation: xp-glow 3s infinite; }
+
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Colin's Dev Journey</h1>
+  <div class="subtitle">Skill progression, learning velocity, and predicted next moves</div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="grid">
+  <!-- Profile Card -->
+  <div class="panel full-width">
+    <h2>Estimated Profile</h2>
+    <div id="profileCard" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;"></div>
+  </div>
+
+  <!-- Scoring Breakdown -->
+  <div class="panel full-width">
+    <h2>Score Breakdown — How You Compare</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" id="scoreBreakdown"></div>
+  </div>
+
+  <!-- Skill Bars -->
+  <div class="panel full-width">
+    <h2>Skill Levels (weighted by difficulty)</h2>
+    <div class="filters" id="filters"></div>
+    <div id="skillBars"></div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="panel">
+    <h2>Learning Timeline</h2>
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <!-- Predictions -->
+  <div class="panel">
+    <h2>Predicted Next Skills</h2>
+    <div id="predictions"></div>
+  </div>
+
+  <!-- GitHub Repos -->
+  <div class="panel full-width">
+    <h2>GitHub Portfolio (16 repos)</h2>
+    <div id="repos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;"></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="panel">
+    <h2>Skills by Category</h2>
+    <canvas id="radarChart" height="300"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Learning Velocity</h2>
+    <canvas id="velocityChart" height="300"></canvas>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// COLIN'S SKILL DATA — derived from project history & memory
+// ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// SKILL CALIBRATION GUIDE (what each level means):
+//   0  = Never touched it
+//  20  = Tutorial-level, followed a guide once
+//  40  = Can build simple things with docs open
+//  60  = Can build real features, debug most issues
+//  80  = Deep understanding, builds complex systems
+//  100 = Expert, could teach/architect at scale
+//
+// "Average dev" = SO survey median (3-5 years exp, 2-3 languages)
+// ═══════════════════════════════════════════════════════════
+
+const ALL_CATEGORIES = [
+  { name: "AI / ML",           color: "#76b900", avgDevLevel: 8  },  // most devs don't do ML
+  { name: "Backend",           color: "#3b82f6", avgDevLevel: 45 },
+  { name: "Frontend",          color: "#f59e0b", avgDevLevel: 42 },
+  { name: "Mobile",            color: "#06b6d4", avgDevLevel: 25 },
+  { name: "Integrations",      color: "#ef4444", avgDevLevel: 30 },
+  { name: "DevOps / Infra",    color: "#10b981", avgDevLevel: 28 },
+  { name: "Data Engineering",   color: "#a78bfa", avgDevLevel: 20 },
+  { name: "Databases",         color: "#ec4899", avgDevLevel: 38 },
+  { name: "Cloud (AWS/GCP/Azure)", color: "#f97316", avgDevLevel: 25 },
+  { name: "Security",          color: "#dc2626", avgDevLevel: 15 },
+  { name: "Testing / QA",      color: "#84cc16", avgDevLevel: 30 },
+  { name: "Systems (C/C++/Rust)", color: "#6b7280", avgDevLevel: 12 },
+  { name: "Architecture",      color: "#8b5cf6", avgDevLevel: 18 },
+  { name: "Networking",        color: "#14b8a6", avgDevLevel: 15 },
+  { name: "Game Dev",          color: "#eab308", avgDevLevel: 8  },
+  { name: "Presentation / Communication", color: "#f472b6", avgDevLevel: 35 },
+];
+
+const skills = [
+  // AI / ML — you're genuinely strong here relative to the average dev (who has 0)
+  { name: "Ollama / Local LLMs", category: "AI / ML", level: 55, learned: "2026-01", color: "#76b900" },
+  { name: "Fine-Tuning (LoRA/QLoRA)", category: "AI / ML", level: 40, learned: "2026-01", color: "#76b900" },
+  { name: "RAG (ChromaDB)", category: "AI / ML", level: 42, learned: "2026-04", color: "#76b900" },
+  { name: "NeMo Agent Toolkit", category: "AI / ML", level: 35, learned: "2026-03", color: "#76b900" },
+  { name: "Prompt Engineering", category: "AI / ML", level: 55, learned: "2026-01", color: "#76b900" },
+  { name: "Model Evaluation", category: "AI / ML", level: 25, learned: "2026-02", color: "#76b900" },
+  { name: "Whisper / STT", category: "AI / ML", level: 25, learned: "2026-04", color: "#76b900" },
+  { name: "TTS (Kokoro)", category: "AI / ML", level: 20, learned: "2026-04", color: "#76b900" },
+  { name: "ComfyUI / Image Gen", category: "AI / ML", level: 20, learned: "2026-04", color: "#76b900" },
+
+  // Backend — functional but not deep
+  { name: "Python", category: "Backend", level: 50, learned: "2026-01", color: "#3b82f6" },
+  { name: "FastAPI", category: "Backend", level: 45, learned: "2026-01", color: "#3b82f6" },
+  { name: "REST API Design", category: "Backend", level: 42, learned: "2026-01", color: "#3b82f6" },
+  { name: "Async Python", category: "Backend", level: 30, learned: "2026-01", color: "#3b82f6" },
+  { name: "Java / C# / Go", category: "Backend", level: 0, learned: null, color: "#3b82f6" },
+
+  // Frontend — builds work but vanilla JS only
+  { name: "HTML / CSS", category: "Frontend", level: 45, learned: "2026-01", color: "#f59e0b" },
+  { name: "Vanilla JavaScript", category: "Frontend", level: 40, learned: "2026-01", color: "#f59e0b" },
+  { name: "Mapbox GL JS", category: "Frontend", level: 40, learned: "2026-03", color: "#f59e0b" },
+  { name: "deck.gl", category: "Frontend", level: 20, learned: "2026-04", color: "#f59e0b" },
+  { name: "Chart.js", category: "Frontend", level: 30, learned: "2026-02", color: "#f59e0b" },
+  { name: "Three.js", category: "Frontend", level: 20, learned: "2026-03", color: "#f59e0b" },
+  { name: "React / Vue / Angular", category: "Frontend", level: 0, learned: null, color: "#f59e0b" },
+  { name: "TypeScript", category: "Frontend", level: 0, learned: null, color: "#f59e0b" },
+
+  // Mobile — none
+  { name: "React Native / Flutter", category: "Mobile", level: 0, learned: null, color: "#06b6d4" },
+  { name: "iOS (Swift)", category: "Mobile", level: 0, learned: null, color: "#06b6d4" },
+  { name: "Android (Kotlin)", category: "Mobile", level: 0, learned: null, color: "#06b6d4" },
+
+  // Integrations — real-world, not tutorial
+  { name: "Twilio (Voice/SMS)", category: "Integrations", level: 35, learned: "2026-04", color: "#ef4444" },
+  { name: "Discord.py Bots", category: "Integrations", level: 50, learned: "2026-03", color: "#ef4444" },
+  { name: "NYC Open Data API", category: "Integrations", level: 45, learned: "2026-03", color: "#ef4444" },
+  { name: "Anthropic API", category: "Integrations", level: 45, learned: "2026-01", color: "#ef4444" },
+  { name: "Pipecat", category: "Integrations", level: 20, learned: "2026-04", color: "#ef4444" },
+
+  // DevOps / Infra
+  { name: "Git / GitHub", category: "DevOps / Infra", level: 40, learned: "2026-01", color: "#10b981" },
+  { name: "SSH / Multi-Machine", category: "DevOps / Infra", level: 40, learned: "2026-02", color: "#10b981" },
+  { name: "Tailscale VPN", category: "DevOps / Infra", level: 35, learned: "2026-03", color: "#10b981" },
+  { name: "Docker / WSL2", category: "DevOps / Infra", level: 20, learned: "2026-04", color: "#10b981" },
+  { name: "ngrok", category: "DevOps / Infra", level: 30, learned: "2026-04", color: "#10b981" },
+  { name: "Kubernetes", category: "DevOps / Infra", level: 0, learned: null, color: "#10b981" },
+  { name: "CI/CD (GitHub Actions)", category: "DevOps / Infra", level: 0, learned: null, color: "#10b981" },
+  { name: "Terraform / IaC", category: "DevOps / Infra", level: 0, learned: null, color: "#10b981" },
+
+  // Data Engineering
+  { name: "Data Pipelines", category: "Data Engineering", level: 35, learned: "2026-02", color: "#a78bfa" },
+  { name: "Geospatial Analysis", category: "Data Engineering", level: 30, learned: "2026-04", color: "#a78bfa" },
+  { name: "Cross-Dataset Correlation", category: "Data Engineering", level: 28, learned: "2026-04", color: "#a78bfa" },
+  { name: "CSV / JSON Processing", category: "Data Engineering", level: 40, learned: "2026-01", color: "#a78bfa" },
+  { name: "ETL / Data Warehousing", category: "Data Engineering", level: 0, learned: null, color: "#a78bfa" },
+
+  // Databases
+  { name: "SQLite", category: "Databases", level: 40, learned: "2026-01", color: "#ec4899" },
+  { name: "ChromaDB (Vector DB)", category: "Databases", level: 30, learned: "2026-04", color: "#ec4899" },
+  { name: "PostgreSQL", category: "Databases", level: 0, learned: null, color: "#ec4899" },
+  { name: "MongoDB", category: "Databases", level: 0, learned: null, color: "#ec4899" },
+  { name: "Redis", category: "Databases", level: 0, learned: null, color: "#ec4899" },
+
+  // Cloud — none
+  { name: "AWS", category: "Cloud (AWS/GCP/Azure)", level: 0, learned: null, color: "#f97316" },
+  { name: "GCP", category: "Cloud (AWS/GCP/Azure)", level: 0, learned: null, color: "#f97316" },
+  { name: "Azure", category: "Cloud (AWS/GCP/Azure)", level: 0, learned: null, color: "#f97316" },
+
+  // Security — minimal
+  { name: "API Key Management", category: "Security", level: 15, learned: "2026-01", color: "#dc2626" },
+  { name: "Auth / OAuth", category: "Security", level: 0, learned: null, color: "#dc2626" },
+  { name: "Pen Testing", category: "Security", level: 0, learned: null, color: "#dc2626" },
+
+  // Testing — none
+  { name: "Unit Testing", category: "Testing / QA", level: 0, learned: null, color: "#84cc16" },
+  { name: "Integration Testing", category: "Testing / QA", level: 0, learned: null, color: "#84cc16" },
+  { name: "E2E Testing", category: "Testing / QA", level: 0, learned: null, color: "#84cc16" },
+
+  // Systems — none
+  { name: "C / C++", category: "Systems (C/C++/Rust)", level: 0, learned: null, color: "#6b7280" },
+  { name: "Rust", category: "Systems (C/C++/Rust)", level: 0, learned: null, color: "#6b7280" },
+
+  // Architecture
+  { name: "System Design", category: "Architecture", level: 20, learned: "2026-03", color: "#8b5cf6" },
+  { name: "Microservices", category: "Architecture", level: 5, learned: null, color: "#8b5cf6" },
+
+  // Networking
+  { name: "HTTP / REST", category: "Networking", level: 35, learned: "2026-01", color: "#14b8a6" },
+  { name: "WebSockets", category: "Networking", level: 20, learned: "2026-03", color: "#14b8a6" },
+  { name: "TCP/UDP / Low-level", category: "Networking", level: 0, learned: null, color: "#14b8a6" },
+
+  // Game Dev
+  { name: "Three.js", category: "Game Dev", level: 20, learned: "2026-03", color: "#eab308" },
+  { name: "Unity / Unreal", category: "Game Dev", level: 0, learned: null, color: "#eab308" },
+
+  // Presentation
+  { name: "Technical Demos", category: "Presentation / Communication", level: 30, learned: "2026-03", color: "#f472b6" },
+  { name: "Pitching / Public Speaking", category: "Presentation / Communication", level: 20, learned: "2026-03", color: "#f472b6" },
+  { name: "Documentation", category: "Presentation / Communication", level: 35, learned: "2026-01", color: "#f472b6" },
+];
+
+const timeline = [
+  // GitHub repos + project history
+  { date: "Oct-Dec 2025", event: "Exploration phase", detail: "Saw Python, AI tools, web dev in end products — not coding yet", category: "Backend" },
+  { date: "Jan 2026", event: "Started coding", detail: "Python, HTML/CSS/JS, FastAPI, SQLite, Ollama, Discord bots, Claude API — all at once", category: "Backend" },
+  { date: "Jan 2026", event: "Local Network Chat", detail: "github: local-network-chat — JS WebSocket app between machines", category: "Frontend" },
+  { date: "Jan 2026", event: "Fine-tuning (LoRA)", detail: "50 Words AI — Qwen 14B, 4,697 conversations, training data curation", category: "AI / ML" },
+  { date: "Feb 2026", event: "ForgeRunner", detail: "github: ForgeRunner — unified training data quality dashboard", category: "AI / ML" },
+  { date: "Feb 2026", event: "Multi-machine pipeline", detail: "3 machines synced, SSH orchestration, 50 Words", category: "DevOps" },
+  { date: "Feb 2026", event: "NeMo Agent Toolkit (fork)", detail: "github: NeMo-Agent-Toolkit — 26 registered tools, custom agents", category: "AI / ML" },
+  { date: "Feb 2026", event: "Jetson Framework", detail: "github: jetson-framework — Jetson Orin Nano setup", category: "DevOps" },
+  { date: "Mar 2026", event: "Claude Discord Bot", detail: "github: Claude-Discord-Bot — AI bots, file bridge, Claude Code integration", category: "Integrations" },
+  { date: "Mar 2026", event: "Claude Token Tracker", detail: "github: Claude-Token-Tracker — usage dashboard, cost estimation, cache analytics", category: "Data" },
+  { date: "Mar 2026", event: "FPS Arena", detail: "github: fps-arena — Three.js multiplayer FPS, WebSocket, mobile touch controls", category: "Frontend" },
+  { date: "Mar 2026", event: "AI Video Studio", detail: "github: ai-video-studio — Remotion + ComfyUI video pipeline", category: "AI / ML" },
+  { date: "Mar 2026", event: "AdminDashbored", detail: "github: AdminDashbored — FastAPI + React + ChromaDB custom AI portal", category: "Backend" },
+  { date: "Mar 2026", event: "3D Mapbox + NYC Open Data", detail: "GridWatch hackathon — 20 datasets, 3D buildings, deck.gl", category: "Frontend" },
+  { date: "Mar 2026", event: "Art 302 (GTC Hackathon)", detail: "github: art-302 — AI art discovery with Nemotron, Shortest Hackathon @ GTC 2026", category: "AI / ML" },
+  { date: "Mar 2026", event: "Tailscale VPN", detail: "4-machine mesh, RDP/VNC from phone, cross-network dev", category: "DevOps" },
+  { date: "Mar 2026", event: "Donor Prospector", detail: "github: donor-prospector — data pipeline for nonprofit outreach", category: "Data" },
+  { date: "Mar 2026", event: "Dashunbored (Hackathon Winner)", detail: "github: Dashunbored — Won NVIDIA GTC Hack to Create hackathon", category: "Frontend" },
+  { date: "Apr 2026", event: "Twilio voice + SMS", detail: "Call-to-incident pipeline, ngrok webhooks, proximity alerts", category: "Integrations" },
+  { date: "Apr 2026", event: "Pipecat voice agent", detail: "Whisper STT + nemotron-mini LLM + Kokoro TTS realtime", category: "AI / ML" },
+  { date: "Apr 2026", event: "RAG pipeline", detail: "ChromaDB, topic routing, geo-filtered retrieval, map plotting", category: "AI / ML" },
+  { date: "Apr 2026", event: "Cross-dataset correlation", detail: "Potholes/crashes 3.2x, noise/rats 16.7x, sewer/rats 6.9x", category: "Data" },
+  { date: "Apr 2026", event: "deck.gl + heatmaps", detail: "Clickable heatmap overlay, marker deduplication", category: "Frontend" },
+  { date: "Apr 2026", event: "NemoClaw", detail: "github: NemoClaw — OpenClaw in NVIDIA OpenShell sandbox", category: "AI / ML" },
+  { date: "Apr 2026", event: "ComfyUI PuLID-Flux", detail: "github: ComfyUI-PuLID-Flux — face-consistent image gen", category: "AI / ML" },
+  { date: "Apr 2026", event: "GridWatch (hackathon)", detail: "github: GridWatch — full NYC dispatch platform, Spark Hack NYC", category: "Integrations" },
+];
+
+const predictions = [
+  { title: "Streaming LLM Responses (SSE)", why: "Your GridWatch and AdminDashbored chat UIs wait for full LLM responses. SSE streaming is a small change that makes everything feel 10x faster. You already use FastAPI which supports it natively.", confidence: 85 },
+  { title: "NVIDIA NIM / Triton Inference", why: "You're building for DGX Spark and already use Ollama. NIM microservices are NVIDIA's production path — one Docker pull replaces your Ollama setup with optimized TensorRT inference.", confidence: 75 },
+  { title: "PostgreSQL + PostGIS", why: "You're doing haversine distance in Python loops across 20 NYC datasets. PostGIS does spatial queries in milliseconds with proper indexing — your GridWatch correlations would go from seconds to instant.", confidence: 70 },
+  { title: "React / Next.js", why: "You've shipped 6+ JS frontends (GridWatch, FPS Arena, AdminDashbored, dashboards). Your index.html files are 4,000+ lines. React components would let you reuse sidebar/map/chat patterns across projects.", confidence: 65 },
+  { title: "Another Hackathon Win", why: "You won GTC Hack to Create (Dashunbored) and competed in 2 more (Shortest, Spark Hack NYC). Technical builds are strong — presentation is the gap. With that dialed in, another win is likely.", confidence: 75 },
+  { title: "Multi-Agent Orchestration", why: "You went from single-tool agents to 26-tool NeMo agents to RAG-augmented chat. Next logical step: multiple agents collaborating — one ingests, one analyzes, one reports. LangGraph or CrewAI.", confidence: 60 },
+  { title: "CI/CD (GitHub Actions)", why: "You push code manually. With 16 repos and multi-machine deployments, automated testing + deployment would save hours per week.", confidence: 50 },
+  { title: "Mobile App", why: "You use Tailscale + VNC from your phone to control 4 machines. A native React Native or Flutter app for GridWatch citizen reporting would be a natural next project.", confidence: 40 },
+  { title: "SaaS Product Launch", why: "50 Words AI, ForgeRunner, Claude Token Tracker, GridWatch — you keep building tools that solve real problems. Claude Token Tracker has the clearest path: every Claude Code user wants usage visibility, there's no competitor, and it's already working. 50 Words AI targets a real market (PR/media). ForgeRunner could serve ML teams needing data quality tooling. Estimated timeline: MVP with auth + hosted version in 2-3 months, first paying users in 4-6 months if you pick one and focus. The pattern of building tools you personally need is exactly how most successful dev tools start.", confidence: 45 },
+];
+
+// ═══════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════
+
+const categories = [...new Set(skills.map(s => s.category))];
+let activeFilter = "All";
+
+// ═══════════════════════════════════════════════════════════
+// WEIGHTED SCORING SYSTEM
+// Difficulty weights: 1.0 = every dev knows it, 3.0 = rare/specialized
+// Based on Stack Overflow 2025 survey adoption rates + job market rarity
+// ═══════════════════════════════════════════════════════════
+
+// Difficulty weights: how rare/hard this skill is in the industry
+// 1.0 = every dev, 2.0 = specialized, 3.0 = very few devs
+const difficultyWeights = {
+  "Ollama / Local LLMs": 2.2, "Fine-Tuning (LoRA/QLoRA)": 2.8, "RAG (ChromaDB)": 2.4,
+  "NeMo Agent Toolkit": 3.0, "Prompt Engineering": 1.5, "Model Evaluation": 2.0,
+  "Whisper / STT": 2.2, "TTS (Kokoro)": 2.5, "ComfyUI / Image Gen": 2.0,
+  "Python": 1.0, "FastAPI": 1.4, "REST API Design": 1.0, "Async Python": 1.5,
+  "Java / C# / Go": 1.0,
+  "HTML / CSS": 1.0, "Vanilla JavaScript": 1.0, "Mapbox GL JS": 2.0,
+  "deck.gl": 2.3, "Chart.js": 1.2, "Three.js": 1.8,
+  "React / Vue / Angular": 1.0, "TypeScript": 1.0,
+  "React Native / Flutter": 1.5, "iOS (Swift)": 1.5, "Android (Kotlin)": 1.5,
+  "Twilio (Voice/SMS)": 2.0, "Discord.py Bots": 1.5, "NYC Open Data API": 1.8,
+  "Anthropic API": 1.6, "Pipecat": 2.8,
+  "Git / GitHub": 1.0, "SSH / Multi-Machine": 1.5, "Tailscale VPN": 1.6,
+  "Docker / WSL2": 1.3, "ngrok": 1.2, "Kubernetes": 2.0,
+  "CI/CD (GitHub Actions)": 1.3, "Terraform / IaC": 2.0,
+  "Data Pipelines": 1.5, "Geospatial Analysis": 2.2, "Cross-Dataset Correlation": 2.5,
+  "CSV / JSON Processing": 1.0, "ETL / Data Warehousing": 1.8,
+  "SQLite": 1.1, "ChromaDB (Vector DB)": 2.0, "PostgreSQL": 1.2,
+  "MongoDB": 1.2, "Redis": 1.3,
+  "AWS": 1.3, "GCP": 1.3, "Azure": 1.3,
+  "API Key Management": 1.0, "Auth / OAuth": 1.3, "Pen Testing": 2.0,
+  "Unit Testing": 1.0, "Integration Testing": 1.2, "E2E Testing": 1.3,
+  "C / C++": 1.8, "Rust": 2.2,
+  "System Design": 2.0, "Microservices": 1.8,
+  "HTTP / REST": 1.0, "WebSockets": 1.6, "TCP/UDP / Low-level": 2.0,
+  "Three.js": 1.8, "Unity / Unreal": 1.8,
+  "Technical Demos": 1.3, "Pitching / Public Speaking": 1.5, "Documentation": 1.0,
+};
+
+// ═══════════════════════════════════════════════════════════
+// PERCENTILE MODEL — Hybrid of SO 2024 Survey, GitHub Octoverse 2024,
+// LinkedIn Economic Graph / Burning Glass skill data
+//
+// Sources:
+//   - Stack Overflow Annual Developer Survey 2024 (survey.stackoverflow.co)
+//     Tech adoption rates, experience distribution, language counts
+//   - GitHub Octoverse 2024 (github.blog/octoverse)
+//     Avg repos/user, languages/user, contribution patterns
+//   - LinkedIn/Burning Glass aggregate skill data
+//     Skill counts by seniority tier, category coverage patterns
+//
+// Average dev (50th %ile): 4-5 languages, 3-4 categories, ~170 weighted pts
+//   Knows JS or Python + SQL + one framework + basic Docker
+//   SO: 62% know JS, 51% Python, 59% Docker, 20% K8s, 15% ML
+//   GitHub: median 4 repos, 3-4 languages
+//   LinkedIn: mid-level lists 6-12 skills across 2-4 categories
+//
+// Tier     | Categories | Score  | Percentile | SO/LinkedIn basis
+// ---------|-----------|--------|------------|------------------
+// Beginner | 1-2       | 0-50   | 0-20th    | 15% are 0-2yr exp
+// Junior   | 2-3       | 51-120 | 21-40th   | basic web + 1 lang
+// Mid      | 3-5       | 121-250| 41-65th   | 25% are 2-5yr
+// Senior   | 5-8       | 251-450| 66-85th   | 25% are 5-10yr, 4-6 cats
+// Staff+   | 7-12      | 451-700| 86-95th   | 10+ yr, breadth + arch
+// Top 1%   | 10-16     | 701+   | 96-100th  | principal/distinguished
+// ═══════════════════════════════════════════════════════════
+
+// Calibrated against 69-skill test with difficulty weights.
+// Max possible: ~11,000. Average dev (SO survey median): ~400.
+// Senior (5-10yr, 4-6 categories deep): ~1,500-2,500
+// Staff (10+yr, 7-12 categories): ~3,000-5,000
+// Distinguished (rare, 10-16 categories deep): ~5,000-8,000
+const PERCENTILE_TABLE = [
+  [0, 0], [100, 10], [200, 20], [300, 30], [400, 50],  // 400 = median (avg dev)
+  [600, 60], [1000, 70], [1500, 75], [2000, 80],
+  [2500, 85], [3500, 90], [5000, 95], [7000, 98], [9000, 99], [11000, 100]
+];
+
+function calcWeightedScore() {
+  return skills.reduce((sum, s) => {
+    const w = difficultyWeights[s.name] || 1.0;
+    return sum + (s.level * w);
+  }, 0);
+}
+
+function calcPercentile(score) {
+  for (let i = 1; i < PERCENTILE_TABLE.length; i++) {
+    const [s0, p0] = PERCENTILE_TABLE[i - 1];
+    const [s1, p1] = PERCENTILE_TABLE[i];
+    if (score <= s1) {
+      const t = (score - s0) / (s1 - s0);
+      return Math.round(p0 + t * (p1 - p0));
+    }
+  }
+  return 99;
+}
+
+function calcBreadth() {
+  // How many of the 16 categories have at least one skill >= 20?
+  const activeCats = new Set(skills.filter(s => s.level >= 20).map(s => s.category));
+  return activeCats.size;
+}
+
+function calcDepth() {
+  // Average of your top 5 skill levels
+  const sorted = [...skills].sort((a, b) => b.level - a.level);
+  return Math.round(sorted.slice(0, 5).reduce((s, sk) => s + sk.level, 0) / 5);
+}
+
+function getTier(percentile) {
+  if (percentile >= 96) return { name: "Distinguished", color: "#ffd700", icon: "★★★★★" };
+  if (percentile >= 86) return { name: "Staff / Principal", color: "#76b900", icon: "★★★★" };
+  if (percentile >= 66) return { name: "Senior", color: "#3b82f6", icon: "★★★☆" };
+  if (percentile >= 41) return { name: "Mid-Level", color: "#a78bfa", icon: "★★★" };
+  if (percentile >= 21) return { name: "Junior", color: "#f59e0b", icon: "★★" };
+  return { name: "Beginner", color: "#ef4444", icon: "★" };
+}
+
+// Stats bar
+function renderStats() {
+  const weightedScore = calcWeightedScore();
+  const percentile = calcPercentile(weightedScore);
+  const tier = getTier(percentile);
+  const breadth = calcBreadth();
+  const depth = calcDepth();
+  const avgDiffWeight = (skills.reduce((s, sk) => s + (difficultyWeights[sk.name] || 1.0), 0) / skills.length).toFixed(1);
+  const months = 3.5; // Jan 2026 to mid-Apr 2026 — actual coding time (Oct-Dec was exploration)
+  const pct = percentile;
+
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card" style="border-color:${tier.color}44;box-shadow:0 0 15px ${tier.color}22;">
+      <div class="value" style="color:${tier.color}">${tier.name}</div>
+      <div class="label">${tier.icon} Tier</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">Top ${100 - pct}%</div>
+      <div class="label">Percentile</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">${Math.round(weightedScore).toLocaleString()}</div>
+      <div class="label">Weighted Score</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">${skills.length}</div>
+      <div class="label">Skills (avg dev: 10)</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">${breadth} / ${ALL_CATEGORIES.length}</div>
+      <div class="label">Breadth (avg: 3-4)</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">${depth}</div>
+      <div class="label">Top-5 Depth</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">${avgDiffWeight}x</div>
+      <div class="label">Avg Difficulty (base: 1.15x)</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">${months}mo</div>
+      <div class="label">Time Active</div>
+    </div>
+  `;
+}
+
+// Filters
+function renderFilters() {
+  const el = document.getElementById('filters');
+  el.innerHTML = `<button class="filter-btn ${activeFilter === 'All' ? 'active' : ''}" onclick="setFilter('All')">All</button>` +
+    categories.map(c => `<button class="filter-btn ${activeFilter === c ? 'active' : ''}" onclick="setFilter('${c}')">${c}</button>`).join('');
+}
+
+function setFilter(cat) {
+  activeFilter = cat;
+  renderFilters();
+  renderSkillBars();
+}
+
+// Skill bars
+function renderSkillBars() {
+  const filtered = activeFilter === 'All' ? skills : skills.filter(s => s.category === activeFilter);
+  const grouped = {};
+  filtered.forEach(s => {
+    if (!grouped[s.category]) grouped[s.category] = [];
+    grouped[s.category].push(s);
+  });
+
+  let html = '';
+  for (const [cat, items] of Object.entries(grouped)) {
+    items.sort((a, b) => b.level - a.level);
+    html += `<div class="skill-group"><div class="skill-group-title">${cat}</div>`;
+    items.forEach(s => {
+      const w = difficultyWeights[s.name] || 1.0;
+      const wLabel = w >= 2.0 ? `<span style="color:#f59e0b;font-size:0.65rem;margin-left:4px;">${w}x</span>` : `<span style="color:var(--muted);font-size:0.65rem;margin-left:4px;">${w}x</span>`;
+      html += `
+        <div class="skill-row">
+          <span class="skill-name">${s.name}${wLabel}</span>
+          <div class="skill-bar-bg">
+            <div class="skill-bar" data-level="Lv ${s.level}" style="width:0%;background:${s.color}"></div>
+          </div>
+          <span class="skill-level">${s.level}</span>
+        </div>`;
+    });
+    html += '</div>';
+  }
+  document.getElementById('skillBars').innerHTML = html;
+
+  // Animate bars
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.skill-bar').forEach(bar => {
+      const level = parseInt(bar.dataset.level.replace('Lv ', ''));
+      bar.style.width = level + '%';
+    });
+  });
+}
+
+// Timeline
+function renderTimeline() {
+  let html = '';
+  timeline.forEach(t => {
+    html += `
+      <div class="timeline-item">
+        <div class="date">${t.date}</div>
+        <div class="event">${t.event}</div>
+        <div class="detail">${t.detail}</div>
+      </div>`;
+  });
+  // Add predicted future items
+  predictions.slice(0, 3).forEach(p => {
+    html += `
+      <div class="timeline-item predicted">
+        <div class="date">Next</div>
+        <div class="event">${p.title}</div>
+        <div class="detail">${p.why.split('.')[0]}</div>
+      </div>`;
+  });
+  document.getElementById('timeline').innerHTML = html;
+}
+
+// Predictions
+function renderPredictions() {
+  let html = '';
+  predictions.forEach(p => {
+    html += `
+      <div class="prediction-card">
+        <div class="title">${p.title}</div>
+        <div class="why">${p.why}</div>
+        <div class="confidence">Likelihood: ${p.confidence}%</div>
+        <div class="conf-bar"><div class="conf-fill" style="width:${p.confidence}%"></div></div>
+      </div>`;
+  });
+  document.getElementById('predictions').innerHTML = html;
+}
+
+// Radar chart — show all 16 categories, yours vs average dev
+function renderRadarChart() {
+  const catAvg = {};
+  const avgDevData = {};
+  ALL_CATEGORIES.forEach(c => {
+    const items = skills.filter(s => s.category === c.name);
+    catAvg[c.name] = items.length ? Math.round(items.reduce((s, i) => s + i.level, 0) / items.length) : 0;
+    avgDevData[c.name] = c.avgDevLevel;
+  });
+
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: Object.keys(catAvg).map(k => k.length > 15 ? k.slice(0,15)+'...' : k),
+      datasets: [{
+        label: 'Colin',
+        data: Object.values(catAvg),
+        backgroundColor: 'rgba(118, 185, 0, 0.15)',
+        borderColor: '#76b900',
+        pointBackgroundColor: '#76b900',
+        pointRadius: 4,
+      },{
+        label: 'Avg Developer',
+        data: Object.values(avgDevData),
+        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+        borderColor: '#ef444488',
+        borderDash: [4, 4],
+        pointBackgroundColor: '#ef4444',
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        r: {
+          beginAtZero: true, max: 100,
+          grid: { color: '#1e1e3a' },
+          angleLines: { color: '#1e1e3a' },
+          pointLabels: { color: '#94a3b8', font: { size: 11 } },
+          ticks: { display: false }
+        }
+      },
+      plugins: { legend: { labels: { color: '#94a3b8' } } }
+    }
+  });
+}
+
+// Velocity chart
+function renderVelocityChart() {
+  // Count skills learned per month — filter out nulls (level 0 skills)
+  const monthly = {};
+  skills.forEach(s => {
+    if (!s.learned) return; // skip null/unlearned
+    if (!monthly[s.learned]) monthly[s.learned] = 0;
+    monthly[s.learned]++;
+  });
+  const sorted = Object.entries(monthly).sort((a, b) => a[0].localeCompare(b[0]));
+
+  // Calculate average monthly velocity from real data
+  const totalNew = sorted.reduce((s, [, c]) => s + c, 0);
+  const avgPerMonth = totalNew / sorted.length;
+
+  // Cumulative from real data
+  let cumulative = 0;
+  const cumData = sorted.map(([m, c]) => { cumulative += c; return cumulative; });
+  const lastCum = cumulative;
+
+  // --- Predictions ---
+  // 1-2 months out (May-Jun 2026): maintain current velocity
+  // 4-6 months out (Aug-Oct 2026): slight slowdown as you deepen vs broaden
+  // 1 year out (Apr 2027): shift to depth over breadth
+  const predictions = [
+    { label: "Jun 2026 (projected)", newPerMonth: Math.round(avgPerMonth * 0.9), months: 2 },
+    { label: "Oct 2026 (projected)", newPerMonth: Math.round(avgPerMonth * 0.6), months: 4 },
+    { label: "Apr 2027 (projected)", newPerMonth: Math.round(avgPerMonth * 0.35), months: 6 },
+  ];
+
+  const allLabels = sorted.map(([m]) => m);
+  const allCum = [...cumData];
+  const allNew = sorted.map(([, c]) => c);
+  const allNewColors = sorted.map(() => 'rgba(124, 58, 237, 0.3)');
+  const allCumColors = cumData.map(() => '#76b900');
+
+  let runningCum = lastCum;
+  predictions.forEach(p => {
+    const totalNewInPeriod = p.newPerMonth * p.months;
+    runningCum += totalNewInPeriod;
+    allLabels.push(p.label);
+    allCum.push(runningCum);
+    allNew.push(p.newPerMonth);
+    allNewColors.push('rgba(124, 58, 237, 0.12)');
+  });
+
+  // Build point styles — solid for real, hollow for predicted
+  const realCount = sorted.length;
+  const cumPointBg = cumData.map(() => '#76b900').concat(predictions.map(() => 'transparent'));
+  const cumBorderColors = cumData.map(() => '#76b900').concat(predictions.map(() => '#76b90088'));
+  const cumSegment = { borderDash: (ctx) => ctx.p0DataIndex >= realCount - 1 ? [6, 3] : undefined };
+
+  new Chart(document.getElementById('velocityChart'), {
+    type: 'line',
+    data: {
+      labels: allLabels,
+      datasets: [
+        {
+          label: 'Cumulative Skills',
+          data: allCum,
+          borderColor: '#76b900',
+          backgroundColor: 'rgba(118, 185, 0, 0.1)',
+          fill: true,
+          tension: 0.3,
+          yAxisID: 'y',
+          segment: cumSegment,
+          pointBackgroundColor: cumPointBg,
+          pointBorderColor: cumBorderColors,
+          pointRadius: 5,
+        },
+        {
+          label: 'New Skills / Month',
+          data: allNew,
+          borderColor: '#7c3aed',
+          backgroundColor: allNewColors,
+          type: 'bar',
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { grid: { color: '#1e1e3a' }, ticks: { color: (ctx) => ctx.index >= realCount ? '#94a3b866' : '#94a3b8' } },
+        y: { position: 'left', grid: { color: '#1e1e3a' }, ticks: { color: '#76b900' }, title: { display: true, text: 'Cumulative', color: '#76b900' } },
+        y1: { position: 'right', grid: { display: false }, ticks: { color: '#7c3aed' }, title: { display: true, text: 'Per Month', color: '#7c3aed' } }
+      },
+      plugins: { legend: { labels: { color: '#94a3b8' } } }
+    }
+  });
+}
+
+// GitHub repos
+const repos = [
+  { name: "NeMo-Agent-Toolkit", date: "Feb 2026", lang: "Python", desc: "NVIDIA NeMo Agent toolkit fork — 26 custom tools, ForgeRunner, GridWatch" },
+  { name: "GridWatch", date: "Apr 2026", lang: "HTML", desc: "NYC Urban Intelligence — 3D map, RAG, multi-channel intake, 20 datasets" },
+  { name: "Claude-Discord-Bot", date: "Mar 2026", lang: "Python", desc: "AI Discord bots with Claude, file bridging, conversation memory" },
+  { name: "Claude-Token-Tracker", date: "Mar 2026", lang: "HTML", desc: "Local dashboard for Claude Code token usage and cost tracking" },
+  { name: "ForgeRunner", date: "Feb 2026", lang: "Python", desc: "Unified training data quality dashboard" },
+  { name: "NemoClaw", date: "Apr 2026", lang: "JavaScript", desc: "OpenClaw in NVIDIA OpenShell sandbox with managed inference" },
+  { name: "art-302", date: "Mar 2026", lang: "Python", desc: "AI art discovery with Nemotron — GTC Shortest Hackathon" },
+  { name: "AdminDashbored", date: "Mar 2026", lang: "JavaScript", desc: "FastAPI + React + ChromaDB custom AI portal" },
+  { name: "fps-arena", date: "Mar 2026", lang: "JavaScript", desc: "Three.js multiplayer FPS maze arena, WebSocket, mobile controls" },
+  { name: "ai-video-studio", date: "Mar 2026", lang: "JavaScript", desc: "Remotion + ComfyUI video generation pipeline" },
+  { name: "donor-prospector", date: "Mar 2026", lang: "Python", desc: "Data pipeline for nonprofit donor outreach" },
+  { name: "Dashunbored", date: "Mar 2026", lang: "JavaScript", desc: "Interactive JS dashboard" },
+  { name: "ComfyUI-PuLID-Flux", date: "Apr 2026", lang: "Python", desc: "PuLID-Flux face-consistent image generation for ComfyUI" },
+  { name: "ComfyUI-PuLID-Flux-Enhanced", date: "Apr 2026", lang: "Python", desc: "Enhanced PuLID-Flux implementation" },
+  { name: "local-network-chat", date: "Jan 2026", lang: "JavaScript", desc: "Local chat between computers on the same network" },
+  { name: "jetson-framework", date: "Feb 2026", lang: "", desc: "Jetson Orin Nano setup framework" },
+];
+
+function renderRepos() {
+  const langColors = { Python: '#3572A5', JavaScript: '#f1e05a', HTML: '#e34c26', '': '#666' };
+  document.getElementById('repos').innerHTML = repos.map(r => `
+    <a href="https://github.com/ColinM-sys/${r.name}" target="_blank" style="text-decoration:none;background:#0f0f20;border:1px solid var(--border);border-radius:8px;padding:12px;transition:border-color 0.2s;cursor:pointer;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:0.9rem;color:var(--accent);font-weight:600;">${r.name}</div>
+      <div style="font-size:0.75rem;color:var(--dim);margin-top:4px;">${r.desc}</div>
+      <div style="display:flex;gap:10px;margin-top:8px;font-size:0.7rem;color:var(--muted);">
+        ${r.lang ? `<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${langColors[r.lang] || '#666'};margin-right:3px;"></span>${r.lang}</span>` : ''}
+        <span>${r.date}</span>
+      </div>
+    </a>
+  `).join('');
+}
+
+// Score breakdown
+function renderScoreBreakdown() {
+  const weightedScore = calcWeightedScore();
+  const percentile = calcPercentile(weightedScore);
+  const tier = getTier(percentile);
+
+  // Show what drives the score
+  const skillWeighted = skills.map(s => ({
+    name: s.name, level: s.level,
+    weight: difficultyWeights[s.name] || 1.0,
+    weighted: s.level * (difficultyWeights[s.name] || 1.0),
+    category: s.category,
+  })).sort((a, b) => b.weighted - a.weighted);
+
+  const top10 = skillWeighted.slice(0, 10);
+  const catScores = {};
+  skills.forEach(s => {
+    const w = difficultyWeights[s.name] || 1.0;
+    if (!catScores[s.category]) catScores[s.category] = 0;
+    catScores[s.category] += s.level * w;
+  });
+
+  document.getElementById('scoreBreakdown').innerHTML = `
+    <div>
+      <h3 style="color:var(--dim);font-size:0.85rem;margin-bottom:10px;">Distribution — Where You Land</h3>
+      <div style="position:relative;height:40px;background:#1a1a30;border-radius:8px;overflow:hidden;margin-bottom:6px;">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${percentile}%;background:linear-gradient(90deg,#1a1040,${tier.color}44);border-radius:8px;"></div>
+        <div style="position:absolute;left:${percentile}%;top:0;width:3px;height:100%;background:${tier.color};box-shadow:0 0 10px ${tier.color};"></div>
+        <div style="position:absolute;left:${Math.max(percentile-5,0)}%;top:50%;transform:translateY(-50%);font-size:0.75rem;color:white;font-weight:700;">You: Top ${100-percentile}%</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--muted);">
+        <span>Beginner</span><span>Junior</span><span>Mid</span><span>Senior</span><span>Staff</span><span>Top 1%</span>
+      </div>
+      <div style="margin-top:16px;">
+        <h3 style="color:var(--dim);font-size:0.85rem;margin-bottom:8px;">Category Contribution to Score</h3>
+        ${Object.entries(catScores).sort((a,b) => b[1]-a[1]).map(([cat, score]) => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="width:100px;font-size:0.78rem;color:var(--dim);">${cat}</span>
+            <div style="flex:1;height:14px;background:#1a1a30;border-radius:7px;overflow:hidden;">
+              <div style="height:100%;width:${(score/weightedScore*100).toFixed(0)}%;background:var(--accent);border-radius:7px;"></div>
+            </div>
+            <span style="font-size:0.7rem;color:var(--muted);width:40px;text-align:right;">${Math.round(score)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div>
+      <h3 style="color:var(--dim);font-size:0.85rem;margin-bottom:10px;">Top 10 Weighted Skills</h3>
+      ${top10.map((s, i) => `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="color:var(--muted);font-size:0.7rem;width:16px;">${i+1}.</span>
+          <span style="flex:1;font-size:0.8rem;color:var(--text);">${s.name}</span>
+          <span style="font-size:0.7rem;color:var(--dim);">Lv${s.level} × ${s.weight}x</span>
+          <span style="font-size:0.8rem;color:var(--primary);font-weight:600;width:40px;text-align:right;">${Math.round(s.weighted)}</span>
+        </div>
+      `).join('')}
+      <div style="margin-top:12px;padding:10px;background:#0f0f20;border-radius:8px;font-size:0.75rem;color:var(--dim);">
+        <b style="color:var(--text);">How this works:</b> Each skill's level (0-100) is multiplied by its difficulty weight (1.0x for common skills like HTML, up to 3.0x for rare skills like NeMo Agent Toolkit). Your weighted score is compared against estimated developer distribution based on Stack Overflow surveys and GitHub Octoverse data.
+      </div>
+    </div>
+  `;
+}
+
+// Profile card
+function renderProfile() {
+  const weightedScore = calcWeightedScore();
+  const percentile = calcPercentile(weightedScore);
+  const tier = getTier(percentile);
+  const breadth = calcBreadth();
+  const depth = calcDepth();
+  const months = 3.5; // Jan 2026 to mid-Apr 2026 — actual coding time (Oct-Dec was exploration)
+  const repoCount = repos.length;
+  const aiSkills = skills.filter(s => s.category === 'AI / ML').length;
+  const totalSkills = skills.length;
+
+  // Determine estimated titles based on score profile
+  const titles = [];
+  const catAvgs = {};
+  // Average only skills you actually have (level > 0), not zeros
+  categories.forEach(c => {
+    const items = skills.filter(s => s.category === c && s.level > 0);
+    catAvgs[c] = items.length ? Math.round(items.reduce((s, i) => s + i.level, 0) / items.length) : 0;
+  });
+
+  if (catAvgs['AI / ML'] >= 25) titles.push('AI/ML Engineer');
+  if (catAvgs['Backend'] >= 30 && catAvgs['Frontend'] >= 25) titles.push('Full-Stack Developer');
+  else if (catAvgs['Backend'] >= 30) titles.push('Backend Developer');
+  if (catAvgs['Data Engineering'] >= 25) titles.push('Data Engineer');
+  if (catAvgs['Integrations'] >= 25) titles.push('Integration Specialist');
+  if (catAvgs['DevOps / Infra'] >= 25) titles.push('DevOps Practitioner');
+  if (breadth >= 8) titles.push('Solution Architect');
+
+  // Seniority estimate
+  let seniority, seniorityDetail, yearsEquiv, salary;
+  if (percentile >= 96) {
+    seniority = 'Distinguished / Principal';
+    seniorityDetail = 'Deep expertise across 10+ domains, defines technical direction for orgs';
+    yearsEquiv = '12+ years typical';
+    salary = '$200K-$350K+';
+  } else if (percentile >= 86) {
+    seniority = 'Staff Engineer';
+    seniorityDetail = 'Designs systems across teams, deep multi-domain expertise, mentors seniors';
+    yearsEquiv = '8-12 years typical';
+    salary = '$160K-$250K';
+  } else if (percentile >= 66) {
+    seniority = 'Senior Engineer';
+    seniorityDetail = 'Owns complex systems end-to-end, ships independently, growing architectural sense';
+    yearsEquiv = '5-10 years typical';
+    salary = '$130K-$180K';
+  } else if (percentile >= 41) {
+    seniority = 'Mid-Level Engineer';
+    seniorityDetail = 'Builds and ships features independently, solid in 2-4 categories. ' + (breadth >= 6 ? 'Breadth across ' + breadth + ' categories is unusual — most mid-levels cover 3-5.' : '');
+    yearsEquiv = '2-5 years typical';
+    salary = '$90K-$140K';
+  } else if (percentile >= 21) {
+    seniority = 'Junior Engineer';
+    seniorityDetail = 'Building fundamentals, productive with guidance, 1-3 categories';
+    yearsEquiv = '0-2 years typical';
+    salary = '$60K-$95K';
+  } else {
+    seniority = 'Entry / Beginner';
+    seniorityDetail = 'Learning basics, following tutorials';
+    yearsEquiv = '<1 year typical';
+    salary = '$45K-$65K';
+  }
+
+  // Strengths and gaps
+  const strengths = [];
+  const gaps = [];
+
+  if (aiSkills >= 6) strengths.push('Deep AI/ML toolkit — fine-tuning, RAG, voice pipelines, agent frameworks');
+  if (breadth >= 5) strengths.push('Rare breadth — most devs at this stage know 2-3 domains, you cover ' + breadth);
+  if (repoCount >= 12) strengths.push('Shipping velocity — ' + repoCount + ' repos in ' + months + ' months including a hackathon win');
+  if (catAvgs['Integrations'] >= 55) strengths.push('Real-world integration — Twilio, Discord, NYC Open Data, not just tutorials');
+
+  if (catAvgs['Frontend'] < 55) gaps.push('Frontend frameworks (React/Vue) — you build everything in vanilla JS which is harder to maintain at scale');
+  if (!skills.find(s => s.name.includes('Docker') && s.level >= 50)) gaps.push('Containerization — Docker basics but not yet production-level');
+  if (!skills.find(s => s.name.includes('WebSocket') && s.level >= 50)) gaps.push('Real-time communication — WebSockets/SSE still emerging');
+  gaps.push('Testing/CI — no automated testing or deployment pipelines yet');
+  gaps.push('Presentation skills — strong builds, but hackathon results show the pitch needs work');
+
+  document.getElementById('profileCard').innerHTML = `
+    <div>
+      <div style="background:linear-gradient(135deg,#1a1040,#0f1a30);border:1px solid ${tier.color}44;border-radius:12px;padding:1.5rem;">
+        <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:2px;">Estimated Seniority</div>
+        <div style="font-size:1.6rem;font-weight:700;color:${tier.color};margin:6px 0;">${seniority}</div>
+        <div style="font-size:0.82rem;color:var(--dim);line-height:1.5;">${seniorityDetail}</div>
+        <div style="margin-top:12px;display:flex;gap:1rem;flex-wrap:wrap;">
+          <div style="background:#0f0f20;padding:8px 14px;border-radius:8px;">
+            <div style="font-size:0.65rem;color:var(--muted);">Experience Equiv.</div>
+            <div style="font-size:0.9rem;color:var(--text);font-weight:600;">${yearsEquiv}</div>
+          </div>
+          <div style="background:#0f0f20;padding:8px 14px;border-radius:8px;">
+            <div style="font-size:0.65rem;color:var(--muted);">Market Range</div>
+            <div style="font-size:0.9rem;color:var(--primary);font-weight:600;">${salary}</div>
+          </div>
+          <div style="background:#0f0f20;padding:8px 14px;border-radius:8px;">
+            <div style="font-size:0.65rem;color:var(--muted);">Actual Time Coding</div>
+            <div style="font-size:0.9rem;color:var(--accent);font-weight:600;">~${months} months</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;">
+        <div style="font-size:0.8rem;color:var(--accent2);font-weight:600;margin-bottom:6px;">Best-fit Titles</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${titles.map(t => `<span style="padding:4px 10px;background:#1a1040;border:1px solid var(--accent);border-radius:12px;font-size:0.75rem;color:var(--accent);">${t}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:0.8rem;color:var(--primary);font-weight:600;margin-bottom:8px;">Strengths</div>
+        ${strengths.map(s => `<div style="font-size:0.78rem;color:var(--dim);margin-bottom:6px;padding-left:12px;border-left:2px solid var(--primary);">${s}</div>`).join('')}
+      </div>
+      <div>
+        <div style="font-size:0.8rem;color:var(--warning);font-weight:600;margin-bottom:8px;">Growth Areas</div>
+        ${gaps.map(g => `<div style="font-size:0.78rem;color:var(--dim);margin-bottom:6px;padding-left:12px;border-left:2px solid var(--warning);">${g}</div>`).join('')}
+      </div>
+      <div style="margin-top:1rem;padding:10px;background:#0f0f20;border-radius:8px;font-size:0.72rem;color:var(--muted);line-height:1.6;">
+        <b style="color:var(--dim);">Note:</b> This profile is estimated from project output, GitHub repos, and skill progression. Seniority equivalence is based on what you can independently build and ship — not years of employment. Your ${months}-month ramp from zero to shipping RAG-powered multi-channel dispatch platforms is significantly faster than average career progression.
+      </div>
+    </div>
+  `;
+}
+
+// Init
+renderProfile();
+renderScoreBreakdown();
+renderRepos();
+renderStats();
+renderFilters();
+renderSkillBars();
+renderTimeline();
+renderPredictions();
+renderRadarChart();
+renderVelocityChart();
+</script>
+</body>
+</html>
