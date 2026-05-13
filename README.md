@@ -89,6 +89,6 @@ Then open http://localhost:8055
 - Chart.js (CDN) for radar and velocity charts
 - CSS custom properties for theming
 
-## Private
+## About
 
-This is a personal tracker. The skill data, timeline, and predictions are hand-curated for my specific career trajectory. Not intended as a generic tool for other developers — though the scoring methodology could be adapted.
+Personal developer skill tracker — skill data, timeline, and predictions are hand-curated for my own career trajectory. The scoring methodology is open and adaptable if you want to fork it and build your own version.
